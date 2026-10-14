@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>FELI DÍA PROFE NICO</title>
+    <title>FELIZ DÍA PROFE NICO</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
 
@@ -41,7 +41,7 @@
         webkit-playsinline
         loop
         muted
-        preload="metadata"
+        preload="auto"
         src="./index.mp4">
     </video>
 
@@ -51,6 +51,9 @@
         const promptText = document.getElementById('promptText');
         
         let isReadyToPlay = false;
+
+        // Forzar la carga en algunos navegadores móviles
+        video.load();
 
         // Monitorear el progreso de descarga real del vídeo
         video.addEventListener('progress', function() {
@@ -65,12 +68,32 @@
             }
         });
 
-        // Cuando el navegador ya tiene suficiente buffer para arrancar fluido
-        video.addEventListener('canplaythrough', function() {
+        // Función para habilitar el inicio de reproducción de forma segura
+        function makeReady() {
+            if (isReadyToPlay) return;
             isReadyToPlay = true;
             promptText.textContent = "TOCA LA PANTALLA";
             startPrompt.classList.remove('text-zinc-400');
             startPrompt.classList.add('text-zinc-100', 'border-zinc-500');
+        }
+
+        // Múltiples eventos de respaldo para evitar que se quede trabado
+        video.addEventListener('loadeddata', makeReady);
+        video.addEventListener('canplay', makeReady);
+        video.addEventListener('canplaythrough', makeReady);
+
+        // Seguridad adicional: si transcurren 2 segundos y el vídeo ya tiene datos, habilitarlo por fuerza
+        setTimeout(() => {
+            if (!isReadyToPlay && video.readyState >= 2) {
+                makeReady();
+            }
+        }, 2000);
+
+        // Manejo de errores si no se encuentra el archivo index.mp4
+        video.addEventListener('error', function() {
+            promptText.textContent = "ERROR: NO SE ENCUENTRA EL VÍDEO";
+            promptText.classList.add('text-red-500');
+            console.error("Error al cargar el archivo de video. Asegúrate de que index.mp4 esté en la misma carpeta.");
         });
 
         function startPlayback() {
@@ -93,6 +116,8 @@
                         video.classList.remove('opacity-0');
                         document.body.style.pointerEvents = 'none';
                         cleanupListeners();
+                    }).catch(err => {
+                        console.error("No se pudo reproducir automáticamente:", err);
                     });
                 });
             }
@@ -105,6 +130,6 @@
 
         window.addEventListener('click', startPlayback);
         window.addEventListener('touchstart', startPlayback, { passive: true });
-    </script> <!--esto se hizo con IA :p-->
+    </script>
 </body>
 </html>
