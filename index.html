@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Reproductor 16:9</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        *, *::before, *::after {
+            border-radius: 0px !important;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100dvh;
+            overflow: hidden;
+            background-color: #000000;
+            font-family: monospace, system-ui, -apple-system, sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-black text-white w-screen h-[100dvh] relative overflow-hidden flex items-center justify-center cursor-pointer select-none">
+
+    <!-- Indicador dinámico de carga -->
+    <div id="startPrompt" class="z-10 px-8 py-5 border border-zinc-800 bg-black text-center pointer-events-none transition-opacity duration-300">
+        <p id="promptText" class="text-xs tracking-[0.25em] font-mono text-zinc-400 uppercase">CARGANDO VÍDEO (0%)</p>
+    </div>
+
+    <!-- Elemento de video adaptado a 16:9 horizontal con object-contain y bg-black -->
+    <video 
+        id="loopVideo" 
+        class="absolute inset-0 w-full h-full object-contain bg-black opacity-0 transition-opacity duration-300 pointer-events-none"
+        playsinline
+        webkit-playsinline
+        loop
+        muted
+        preload="metadata"
+        src="https://files.catbox.moe/p9ihaz.mp4">
+    </video>
+
+    <script>
+        const video = document.getElementById('loopVideo');
+        const startPrompt = document.getElementById('startPrompt');
+        const promptText = document.getElementById('promptText');
+        
+        let isReadyToPlay = false;
+
+        // Monitorear el progreso de descarga real del vídeo
+        video.addEventListener('progress', function() {
+            if (video.buffered.length > 0 && video.duration > 0) {
+                const bufferedEnd = video.buffered.end(video.buffered.length - 1);
+                const duration = video.duration;
+                const percent = Math.min(100, Math.round((bufferedEnd / duration) * 100));
+                
+                if (!isReadyToPlay) {
+                    promptText.textContent = `CARGANDO VÍDEO (${percent}%)`;
+                }
+            }
+        });
+
+        // Cuando el navegador ya tiene suficiente buffer para arrancar fluido
+        video.addEventListener('canplaythrough', function() {
+            isReadyToPlay = true;
+            promptText.textContent = "TOCA LA PANTALLA";
+            startPrompt.classList.remove('text-zinc-400');
+            startPrompt.classList.add('text-zinc-100', 'border-zinc-500');
+        });
+
+        function startPlayback() {
+            video.muted = false;
+
+            const playPromise = video.play();
+
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    if (startPrompt) startPrompt.remove();
+                    video.classList.remove('opacity-0');
+                    document.body.style.pointerEvents = 'none';
+                    cleanupListeners();
+                }).catch(function(error) {
+                    console.warn("Fallback de audio activado:", error);
+                    video.muted = true;
+                    video.play().then(() => {
+                        video.muted = false;
+                        if (startPrompt) startPrompt.remove();
+                        video.classList.remove('opacity-0');
+                        document.body.style.pointerEvents = 'none';
+                        cleanupListeners();
+                    });
+                });
+            }
+        }
+
+        function cleanupListeners() {
+            window.removeEventListener('click', startPlayback);
+            window.removeEventListener('touchstart', startPlayback);
+        }
+
+        window.addEventListener('click', startPlayback);
+        window.addEventListener('touchstart', startPlayback, { passive: true });
+    </script>
+</body>
+</html>
