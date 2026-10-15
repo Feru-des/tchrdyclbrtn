@@ -28,12 +28,12 @@
 </head>
 <body class="bg-black text-white w-screen h-[100dvh] relative overflow-hidden flex items-center justify-center cursor-pointer select-none">
 
-    <!-- Indicador dinámico de carga -->
+    <!-- Indicador dinámico -->
     <div id="startPrompt" class="z-10 px-8 py-5 border border-zinc-800 bg-black text-center pointer-events-none transition-opacity duration-300">
-        <p id="promptText" class="text-xs tracking-[0.25em] font-mono text-zinc-400 uppercase">CARGANDO VÍDEO (0%)</p>
+        <p id="promptText" class="text-xs tracking-[0.25em] font-mono text-zinc-100 uppercase border-zinc-500">TOCA LA PANTALLA</p>
     </div>
 
-    <!-- Elemento de video adaptado a 16:9 horizontal con object-contain y bg-black -->
+    <!-- Elemento de video con soporte múltiple (MP4 prioritario para iOS/Safari) -->
     <video 
         id="loopVideo" 
         class="absolute inset-0 w-full h-full object-contain bg-black opacity-0 transition-opacity duration-300 pointer-events-none"
@@ -41,8 +41,9 @@
         webkit-playsinline
         loop
         muted
-        preload="auto"
-        src="./index.webm">
+        preload="auto">
+        <source src="./index.mp4" type="video/mp4">
+        Tu navegador no soporta la reproducción de video.
     </video>
 
     <script>
@@ -52,44 +53,19 @@
         
         let isReadyToPlay = false;
 
-        // Forzar la carga en algunos navegadores móviles
+        // Forzar carga inicial en móviles
         video.load();
 
-        // Monitorear el progreso de descarga real del vídeo
-        video.addEventListener('progress', function() {
-            if (video.buffered.length > 0 && video.duration > 0) {
-                const bufferedEnd = video.buffered.end(video.buffered.length - 1);
-                const duration = video.duration;
-                const percent = Math.min(100, Math.round((bufferedEnd / duration) * 100));
-                
-                if (!isReadyToPlay) {
-                    promptText.textContent = `CARGANDO VÍDEO (${percent}%)`;
-                }
-            }
-        });
-
-        // Función para habilitar el inicio de reproducción de forma segura
         function makeReady() {
             if (isReadyToPlay) return;
             isReadyToPlay = true;
-            promptText.textContent = "TOCA LA PANTALLA";
-            startPrompt.classList.remove('text-zinc-400');
-            startPrompt.classList.add('text-zinc-100', 'border-zinc-500');
         }
 
-        // Múltiples eventos de respaldo para evitar que se quede trabado
-        video.addEventListener('loadeddata', makeReady);
+        // En móviles aseguramos disponibilidad rápida sin depender de eventos complejos de buffer
+        video.addEventListener('loadedmetadata', makeReady);
         video.addEventListener('canplay', makeReady);
-        video.addEventListener('canplaythrough', makeReady);
+        setTimeout(makeReady, 500);
 
-        // Seguridad adicional: si transcurren 2 segundos y el vídeo ya tiene datos, habilitarlo por fuerza
-        setTimeout(() => {
-            if (!isReadyToPlay && video.readyState >= 2) {
-                makeReady();
-            }
-        }, 2000);
-
-        // Manejo de errores si no se encuentra el archivo index.mp4
         video.addEventListener('error', function() {
             promptText.textContent = "ERROR: NO SE ENCUENTRA EL VÍDEO";
             promptText.classList.add('text-red-500');
@@ -97,27 +73,23 @@
         });
 
         function startPlayback() {
-            video.muted = false;
-
+            // Reproducir primero (la interacción del usuario desbloquea el reproductor)
             const playPromise = video.play();
 
             if (playPromise !== undefined) {
                 playPromise.then(() => {
+                    // Intentar activar el audio de forma segura tras iniciar
+                    video.muted = false;
                     if (startPrompt) startPrompt.remove();
                     video.classList.remove('opacity-0');
-                    document.body.style.pointerEvents = 'none';
                     cleanupListeners();
                 }).catch(function(error) {
                     console.warn("Fallback de audio activado:", error);
                     video.muted = true;
                     video.play().then(() => {
-                        video.muted = false;
                         if (startPrompt) startPrompt.remove();
                         video.classList.remove('opacity-0');
-                        document.body.style.pointerEvents = 'none';
                         cleanupListeners();
-                    }).catch(err => {
-                        console.error("No se pudo reproducir automáticamente:", err);
                     });
                 });
             }
